@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Boat Racer Server Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        p {
+            color: #666;
+            line-height: 1.6;
+        }
+        .code-block {
+            background-color: #e9e9e9;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            text-align: left;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-top: 20px;
+        }
+        .download-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 20px;
+            font-size: 1.1em;
+            transition: background-color 0.3s ease;
+        }
+        .download-btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Retro Boat Racer Server Setup</h1>
+    <p>
+        This is a simple setup script to turn your Raspberry Pi into a dedicated matchmaking server for Retro Boat Racer.
+    </p>
+    <p>
+        Simply download the script below and run it from your Raspberry Pi's terminal.
+    </p>
+    <a href="#" class="download-btn" id="downloadButton">Download Setup Script</a>
+    
+    <p style="margin-top: 30px;">
+        Alternatively, you can copy and paste the command below directly into your Raspberry Pi's terminal:
+    </p>
+    <div class="code-block">
+        <code id="codeToCopy">wget -qO- https://yourwebsite.com/matchmaking_setup.sh | bash</code>
+    </div>
+</div>
+
+<script>
+    document.getElementById('downloadButton').addEventListener('click', function(event) {
+        // Prevent the default link behavior
+        event.preventDefault();
+
+        // Create a Blob containing the script content
+        const scriptContent = `
+#!/bin/bash
+
+# Update package list and install Node.js and npm
+echo "Updating system and installing Node.js..."
+sudo apt-get update -y
+sudo apt-get install nodejs npm -y
+
+# Check if installation was successful
+if ! command -v node &> /dev/null
+then
+    echo "Node.js could not be installed. Please check your internet connection and try again."
+    exit 1
+fi
+
+# Create a directory for the project and navigate into it
+echo "Creating project directory..."
+mkdir retro_boat_racer_server
+cd retro_boat_racer_server
+
+# Initialize a new Node.js project and install PeerServer
+echo "Installing PeerServer..."
+npm init -y
+npm install peer --save
+
+# Create the server.js file
+echo "Creating server.js..."
+cat <<EOF > server.js
+const { PeerServer } = require('peer');
+const http = require('http');
+const path = require('path');
+const fs = require('fs');
+
+const peerServer = PeerServer({ port: 9000, path: '/' });
+
+peerServer.on('connection', (client) => {
+  console.log(\`Client connected: \${client.id}\`);
+});
+
+peerServer.on('disconnect', (client) => {
+  console.log(\`Client disconnected: \${client.id}\`);
+});
+
+console.log("PeerJS server is running on port 9000");
+
+// A simple HTTP server to serve the game files
+const server = http.createServer((req, res) => {
+  let filePath = '.' + req.url;
+  if (filePath === './') {
+    filePath = './index.html';
+  }
+
+  const extname = path.extname(filePath);
+  let contentType = 'text/html';
+  switch (extname) {
+    case '.js':
+      contentType = 'text/javascript';
+      break;
+    case '.css':
+      contentType = 'text/css';
+      break;
+  }
+
+  fs.readFile(filePath, (error, content) => {
+    if (error) {
+      if (error.code == 'ENOENT') {
+        res.writeHead(404);
+        res.end('File not found: ' + req.url);
+      } else {
+        res.writeHead(500);
+        res.end('Server error: ' + error.code);
+      }
+    } else {
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(content, 'utf-8');
+    }
+  });
+});
+
+const port = 80;
+server.listen(port, () => {
+  console.log(\`Web server running on port \${port}\`);
+  console.log(\`Access your game at http://<your_pi_ip>\`);
+});
+EOF
+
+# Download the game files from your other website (the one I have saved from a previous conversation)
+echo "Downloading game files..."
+wget https://retro-boat-racer-vrdx.onrender.com/index.html -O index.html
+
+# Change PeerJS configuration in the HTML file
+echo "Configuring PeerJS connection..."
+sed -i 's|host: '\''0.peerjs.com'\'', port: 443, path: '\''/'\'', secure: true|host: '\''localhost'\'', port: 9000, path: '\''/'\'', secure: false|g' index.html
+
+# Start the server
+echo "Setup complete. Starting the server..."
+node server.js
+        `;
+
+        // Create a Blob object from the script content
+        const blob = new Blob([scriptContent], { type: 'text/plain' });
+        
+        // Create a temporary link element
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'matchmaking_setup.sh';
+        
+        // Programmatically click the link to trigger the download
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up by removing the link and revoking the object URL
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    });
+</script>
+
+</body>
+</html>
